@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.IO.Pipelines;
 using System.Text;
 
 namespace Poc
@@ -10,13 +11,15 @@ namespace Poc
     {
         static void Main(string[] args)
         {
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new Person { })));
 
-            //var f = new PipelineFactory();
+
+            var f = new PipeFactory();
             //f.CreateReader(stream);
-            
 
-            Serializer.Deserialize();
+            var json = JsonConvert.SerializeObject(new Person { });
+            var bytes = Encoding.UTF8.GetBytes(json);
+
+            Serializer.Deserialize(f.CreateReader(new MemoryStream(bytes))).Wait();
         }
     }
 

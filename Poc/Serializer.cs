@@ -11,44 +11,47 @@ namespace Poc
         static Span<byte> Age = new Span<byte>(Encoding.UTF8.GetBytes("Age"));
         static Span<byte> Name = new Span<byte>(Encoding.UTF8.GetBytes("Name"));
 
-        public static async Task<Person> Deserialize()//IPipelineReader pipelineReader)
+        public static async Task Serialize(IPipeWriter pipe, Person p)
+        {
+            Span<byte> s = new Span<byte>(Encoding.UTF8.GetBytes("{"));
+            
+            await pipe.WriteAsync(s);
+        }
+
+        public static async Task<Person> Deserialize(IPipeReader pipelineReader)
         {
 
-            //ReadableBuffer buffer, workBuffer;
+            ReadableBuffer buffer, workBuffer;
 
-            //var result = await pipelineReader.ReadAsync();
-            //buffer = result.Buffer;
-            //workBuffer = buffer;
-            //ReadCursor cursor;
-            //int found;
+            var result = await pipelineReader.ReadAsync();
+            buffer = result.Buffer;
+            workBuffer = buffer;
+            ReadCursor cursor;
+            int found;
 
-            //found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
-            //workBuffer = workBuffer.Slice(cursor).Slice(1);
-            //found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
+            found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
+            workBuffer = workBuffer.Slice(cursor).Slice(1);
+            found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
 
-            //var value = workBuffer.Slice(workBuffer.Start, cursor);
+            var value = workBuffer.Slice(workBuffer.Start, cursor);
 
-            //if (value.Equals(Age))
-            //{
-            //    found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)' ');
-            //    workBuffer = workBuffer.Slice(cursor).Slice(1);
-            //    found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)',');
-            //    value = workBuffer.Slice(workBuffer.Start, cursor);
-            //}
-            //else if (value.Equals(Name))
-            //{
-            //    found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
-            //    workBuffer = workBuffer.Slice(cursor).Slice(1);
-            //    found = SeekExtensions.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
-            //    value = workBuffer.Slice(workBuffer.Start, cursor);
-            //}
+            if (value.Equals(Age))
+            {
+                found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)' ');
+                workBuffer = workBuffer.Slice(cursor).Slice(1);
+                found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)',');
+                value = workBuffer.Slice(workBuffer.Start, cursor);
+            }
+            else if (value.Equals(Name))
+            {
+                found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
+                workBuffer = workBuffer.Slice(cursor).Slice(1);
+                found = ReadCursorOperations.Seek(workBuffer.Start, workBuffer.End, out cursor, (byte)'"');
+                value = workBuffer.Slice(workBuffer.Start, cursor);
+            }
 
-            //workBuffer = workBuffer.Slice(cursor).Slice(1);
-
-
-
-
-            //pipelineReader.Advance(buffer.End, buffer.End);
+            workBuffer = workBuffer.Slice(cursor).Slice(1);
+            pipelineReader.Advance(buffer.End, buffer.End);
 
 
 

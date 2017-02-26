@@ -7,10 +7,12 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.10.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.1-beta1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Library\Library.csproj" />
+    <ProjectReference Include="..\Poc\Poc.csproj" />
   </ItemGroup>
 
 </Project>
