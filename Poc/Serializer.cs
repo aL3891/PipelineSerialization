@@ -10,12 +10,10 @@ namespace Poc
     {
         static Span<byte> Age = new Span<byte>(Encoding.UTF8.GetBytes("Age"));
         static Span<byte> Name = new Span<byte>(Encoding.UTF8.GetBytes("Name"));
-
-        public static async Task Serialize(IPipeWriter pipe, Person p)
+        static Span<byte> s = new Span<byte>(Encoding.UTF8.GetBytes("{\"Age\":\"\", \"Name\":\"\"}"));
+        public static void Serialize(WritableBuffer pipe, Person p)
         {
-            Span<byte> s = new Span<byte>(Encoding.UTF8.GetBytes("{"));
-            
-            await pipe.WriteAsync(s);
+            pipe.Write(s);
         }
 
         public static async Task<Person> Deserialize(IPipeReader pipelineReader)
