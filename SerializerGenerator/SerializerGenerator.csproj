@@ -12,4 +12,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis" Version="2.0.0-rc4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Library\Library.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -13,7 +13,8 @@ namespace Poc
         static Span<byte> s = new Span<byte>(Encoding.UTF8.GetBytes("{\"Age\":\"\", \"Name\":\"\"}"));
         public static void Serialize(WritableBuffer pipe, Person p)
         {
-            pipe.Write(s);
+            pipe.Write(s.Slice(0,1));
+            pipe.Write(new Span<byte>(Encoding.UTF8.GetBytes("Name")));
         }
 
         public static async Task<Person> Deserialize(IPipeReader pipelineReader)
