@@ -7,6 +7,8 @@ using System.IO;
 using Library;
 using System.Linq;
 using System.Reflection;
+using System.Collections.Generic;
+using System.Text;
 
 namespace SerializerGenerator
 {
@@ -70,20 +72,21 @@ namespace SerializerGenerator
                     res = res.AddStatements((StatementSyntax)cc);
                     laststr = "";
                 }
-
             }
 
-            return b;
+            if (laststr != "")
+                res = res.AddStatements(WriteLiteralString(laststr));
+
+            return res;
         }
 
         private static string GetLiteralString(SyntaxNode syntaxNode)
         {
-
-            
             var r = syntaxNode.ReplaceNodes(syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>(), (o, n) => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")));
-            r.IsEquivalentTo(WriteLiteralString(""));
-            syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>().First().GetText();
-            return null;
+            if (r.IsEquivalentTo(WriteLiteralString("")))
+                return syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>().First().GetText().ToString();
+            else
+                return null;
         }
 
         private static BlockSyntax WriteSerializer(Type t, BlockSyntax b, ExpressionSyntax member)
@@ -218,6 +221,41 @@ namespace SerializerGenerator
                                                                      SingletonSeparatedList(
                                                                          Argument(
                                                                              expression))))))));
+        }
+    }
+
+    public class StringCollector
+    {
+        Dictionary<string, int> lengths = new Dictionary<string, int>();
+        Dictionary<string, int> indecies = new Dictionary<string, int>();
+        List<string> strings = new List<string>();
+
+        public Tuple<int, int> GetOffset(string value)
+        {
+            if (!lengths.ContainsKey(value))
+            {
+                strings.Add(value);
+                var b = Encoding.UTF8.GetBytes(value);
+                lengths[value] = b.Length;
+                indecies[value] = indecies.Values.Sum();
+            }
+
+            return Tuple.Create(indecies[value], lengths[value]);
+        }
+
+        public string GetRawString()
+        {
+            StringBuilder sb = new StringBuilder();
+
+            foreach (var str in strings)
+                sb.Append(str);
+
+            return sb.ToString();
+        }
+
+        public string GetBase64String()
+        {
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(GetRawString()));
         }
     }
 }

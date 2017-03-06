@@ -9,17 +9,18 @@ namespace Poc
 {
     class Program
     {
+        private static PipeFactory _pipelineFactory;
+        private static IPipe _pipe;
+
         static void Main(string[] args)
         {
-
-
-            var f = new PipeFactory();
-            //f.CreateReader(stream);
+            _pipelineFactory = new PipeFactory();
+            _pipe = _pipelineFactory.Create();
 
             var json = JsonConvert.SerializeObject(new Person { });
             var bytes = Encoding.UTF8.GetBytes(json);
 
-            Serializer.Deserialize(f.CreateReader(new MemoryStream(bytes))).Wait();
+            Serializer.Deserialize(_pipelineFactory.CreateReader(new MemoryStream(bytes))).Wait();
         }
     }
 

@@ -11,6 +11,7 @@ namespace Poc
         static Span<byte> Age = new Span<byte>(Encoding.UTF8.GetBytes("Age"));
         static Span<byte> Name = new Span<byte>(Encoding.UTF8.GetBytes("Name"));
         static Span<byte> s = new Span<byte>(Encoding.UTF8.GetBytes("{\"Age\":\"\", \"Name\":\"\"}"));
+
         public static void Serialize(WritableBuffer pipe, Person p)
         {
             pipe.Write(s.Slice(0,1));
