@@ -40,6 +40,8 @@ namespace SerializerGenerator
 
             //            b = b.AddStatements(WriteSpanSlice(0, 1));
 
+            b = MergeLiterals(b);
+
             c = c.AddMembers(SerializerMethod(b, t));
 
 
@@ -47,6 +49,41 @@ namespace SerializerGenerator
             cu = cu.AddMembers(c);
 
             return cu;
+        }
+
+        private static BlockSyntax MergeLiterals(BlockSyntax b)
+        {
+            var cs = b.ChildNodes().ToList();
+            var res = Block();
+
+            string laststr = "";
+
+            foreach (var cc in cs)
+            {
+                var s = GetLiteralString(cc);
+                if (s != null)
+                    laststr += s;
+                else
+                {
+                    if (laststr != "")
+                        res = res.AddStatements(WriteLiteralString(laststr));
+                    res = res.AddStatements((StatementSyntax)cc);
+                    laststr = "";
+                }
+
+            }
+
+            return b;
+        }
+
+        private static string GetLiteralString(SyntaxNode syntaxNode)
+        {
+
+            
+            var r = syntaxNode.ReplaceNodes(syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>(), (o, n) => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")));
+            r.IsEquivalentTo(WriteLiteralString(""));
+            syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>().First().GetText();
+            return null;
         }
 
         private static BlockSyntax WriteSerializer(Type t, BlockSyntax b, ExpressionSyntax member)
