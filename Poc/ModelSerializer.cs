@@ -3,7 +3,7 @@ using System.IO.Pipelines;
 using System.Text.Formatting;
 using System.Text;
 
-public class GeneratedSerializer
+public class ModelSerializer
 {
     static Span<byte> span = new Span<byte>(Encoding.UTF8.GetBytes("{\"Id\" : ,\"EnrollmentServiceId\" : ,\"EnrollmentId\" : ,\"ServiceId\" : ,\"ProviderId\" : ,\"Enrollment\" : {\"Id\" : ,\"ClientId\" : ,\"PrimaryCaseManager\" : {\"Id\" : ,\"UserId\" : ,\"CreatedDate\" : '',\"UpdatedDate\" : '',\"UpdateBy\" : ''},\"SecondaryCaseManager\" : {\"Id\" : '},\"ProgramId\" : ,\"Program\" : {\"Id\" : ,\"ProgramId\" : ,\"Name\" : '',\"Enrollments\" : {\"Count\" : ,\"IsReadOnly\" : },\"Services\" : {\"Count\" : },\"CreatedDate\" : ''},\"Client\" : {\"Id\" : ,\"HomeAddress\" : {\"Street1\" : '',\"Street2\" : '',\"Zip\" : ,\"City\" : '',\"State\" : ''},\"Docs\" : {\"Count\" : },\"Notes\" : {\"Count\" : },\"Enrollments\" : {\"Count\" : },\"Contacts\" : {\"Count\" : },\"CareSettings\" : {\"Count\" : '},\"EnrollmentServices\" : {\"Count\" : },\"Documents\" : {\"Count\" : '},\"Service\" : {\"Id\" : ,\"Code\" : '',\"Name\" : '',\"SubName\" : '',\"Providers\" : {\"Count\" : },\"Program\" : {\"Id\" : '},\"CreatedDate\" : ''},\"Provider\" : {\"Id\" : ',\"Services\" : {\"Count\" : '}"));
     public static void Serializer(WritableBuffer wb, System.IO.Pipelines.Samples.Models.Model t)
