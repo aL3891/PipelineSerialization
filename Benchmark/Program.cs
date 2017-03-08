@@ -16,7 +16,8 @@ namespace Benchmark
     {
         static void Main(string[] args)
         {
-            var summary = BenchmarkRunner.Run<BigClassSerializer>();
+            //var summary = BenchmarkRunner.Run<BigClassSerializer>();
+            var summary = BenchmarkRunner.Run<SmallClassSerializer>();
             Console.ReadLine();
         }
     }
@@ -42,15 +43,15 @@ namespace Benchmark
             json = new JsonSerializer();
             writer = new JsonTextWriter(new StreamWriter(mem));
             model = BigModels.About100Fields;
-            writableBuffer = _pipe.Writer.Alloc(100);
+            writableBuffer = _pipe.Writer.Alloc();
         }
 
-        [Benchmark(Baseline = true)]
-        public void Jsondotnet()
-        {
-            mem.Position = 0;
-            json.Serialize(writer, model);
-        }
+        //[Benchmark(Baseline = true)]
+        //public void Jsondotnet()
+        //{
+        //    mem.Position = 0;
+        //    json.Serialize(writer, model);
+        //}
 
         [Benchmark]
         public void Generated()
@@ -79,20 +80,26 @@ namespace Benchmark
             json = new JsonSerializer();
             writer = new JsonTextWriter(new StreamWriter(mem));
             person = new Person { Age = 23, Name = "rune" };
-            writableBuffer = _pipe.Writer.Alloc(100);
+            writableBuffer = _pipe.Writer.Alloc();
         }
 
-        [Benchmark(Baseline = true)]
-        public void Jsondotnet()
-        {
-            mem.Position = 0;
-            json.Serialize(writer, person);
-        }
+        //[Benchmark(Baseline = true)]
+        //public void Jsondotnet()
+        //{
+        //    mem.Position = 0;
+        //    json.Serialize(writer, person);
+        //}
 
         [Benchmark]
         public void Generated()
         {
             PersonSerializer.Serialize(writableBuffer, person);
+        }
+
+        [Benchmark]
+        public void Generated2()
+        {
+            PersonSerializer2.Serialize(writableBuffer, person);
         }
     }
 

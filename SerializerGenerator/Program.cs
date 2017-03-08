@@ -17,8 +17,8 @@ namespace SerializerGenerator
     {
         static void Main(string[] args)
         {
-            //var cu = GenerateSerializer(typeof(Person)).NormalizeWhitespace();
-            var cu = GenerateSerializer(typeof(Model)).NormalizeWhitespace();
+            var cu = GenerateSerializer(typeof(Person)).NormalizeWhitespace();
+            //var cu = GenerateSerializer(typeof(Model)).NormalizeWhitespace();
 
 
             File.WriteAllText(@"..\Poc\generated.cs", cu.ToFullString());
@@ -148,9 +148,15 @@ namespace SerializerGenerator
 
                 if (prop.PropertyType == typeof(string))
                 {
-                    b = b.AddStatements(WriteLiteralString("'"));
-                    b = b.AddStatements(WriteAppendExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
-                    b = b.AddStatements(WriteLiteralString("'"));
+                    var sb = Block();
+                    sb = sb.AddStatements(WriteLiteralString("'"));
+                    sb = sb.AddStatements(WriteAppendExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
+                    sb = sb.AddStatements(WriteLiteralString("'"));
+
+                    b = b.AddStatements(IfStatement(BinaryExpression(
+        SyntaxKind.NotEqualsExpression,
+        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)),
+        LiteralExpression(SyntaxKind.NullLiteralExpression)),    sb));
                 }
                 else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(Guid))
                 {
