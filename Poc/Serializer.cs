@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Poc
 {
-    public class Serializer
+    public partial  class Serializer
     {
         static Span<byte> Age = new Span<byte>(Encoding.UTF8.GetBytes("Age"));
         static Span<byte> Name = new Span<byte>(Encoding.UTF8.GetBytes("Name"));

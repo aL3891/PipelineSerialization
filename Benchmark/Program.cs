@@ -55,7 +55,7 @@ namespace Benchmark
         [Benchmark]
         public void Generated()
         {
-            ModelSerializer.Serializer(writableBuffer, model);
+            ModelSerializer.Serialize(writableBuffer, model);
         }
     }
 
@@ -92,7 +92,7 @@ namespace Benchmark
         [Benchmark]
         public void Generated()
         {
-            PersonSerializer.Serializer(writableBuffer, person);
+            PersonSerializer.Serialize(writableBuffer, person);
         }
     }
 

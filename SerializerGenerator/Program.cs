@@ -36,7 +36,7 @@ namespace SerializerGenerator
             UsingDirective(QualifiedName(QualifiedName(IdentifierName("System"), IdentifierName("Text")), IdentifierName("Formatting"))),
             UsingDirective(QualifiedName(IdentifierName("System"), IdentifierName("Text"))));
 
-            var c = ClassDeclaration("GeneratedSerializer").WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)));
+            var c = ClassDeclaration("Serializer").WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword), Token(SyntaxKind.PartialKeyword)));
 
             var b = Block();
             b = b.AddStatements(EncodingLocal("Utf8"));
@@ -52,10 +52,6 @@ namespace SerializerGenerator
                 var i = sc.GetOffset(s);
                 c = c.AddMembers(SpanField("slice" + i.Item1, SpanSlice(i.Item1, i.Item2)));
             }
-
-
-
-
 
             c = c.AddMembers(SerializerMethod(b, t));
             cu = cu.AddMembers(c);
@@ -73,7 +69,7 @@ namespace SerializerGenerator
                 if (cc is IfStatementSyntax f && f.Statement is BlockSyntax block)
                 {
                     if (f.Else != null)
-                        res = res.AddStatements(IfStatement(f.Condition, ConvertToSlices(block,sc), ElseClause(ConvertToSlices((BlockSyntax)f.Else.Statement, sc))));
+                        res = res.AddStatements(IfStatement(f.Condition, ConvertToSlices(block, sc), ElseClause(ConvertToSlices((BlockSyntax)f.Else.Statement, sc))));
                     else
                         res = res.AddStatements(IfStatement(f.Condition, ConvertToSlices(block, sc)));
                 }
@@ -169,7 +165,19 @@ namespace SerializerGenerator
                 else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(bool) || prop.PropertyType == typeof(float) || prop.PropertyType == typeof(double))
                     b = b.AddStatements(WriteAppendExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
                 else
-                    b = WriteSerializer(prop.PropertyType, b, MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)));
+                {
+                    if (!prop.PropertyType.GetTypeInfo().IsValueType)
+                    {
+                        b = b.AddStatements(IfStatement(BinaryExpression(
+        SyntaxKind.NotEqualsExpression,
+        MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)),
+        LiteralExpression(SyntaxKind.NullLiteralExpression)),
+    WriteSerializer(prop.PropertyType, Block(), MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)))));
+                    }
+                    else
+                        b = WriteSerializer(prop.PropertyType, b, MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)));
+                }
+
 
                 if (prop != last)
                     b = b.AddStatements(WriteLiteralString(","));
@@ -191,14 +199,14 @@ namespace SerializerGenerator
 
         private static MethodDeclarationSyntax SerializerMethod(BlockSyntax b, Type t)
         {
-            return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), "Serializer").WithParameterList(
+            return MethodDeclaration(PredefinedType(Token(SyntaxKind.VoidKeyword)), "Serialize").WithParameterList(
                                     ParameterList(
                                         SeparatedList<ParameterSyntax>(
                                             new SyntaxNodeOrToken[]{
                                     Parameter(Identifier("wb")).WithType(IdentifierName("WritableBuffer")),
                                     Token(SyntaxKind.CommaToken),
                                     Parameter(Identifier("t")).WithType( ParseTypeName(t.FullName))})))
-                                            .WithBody(b).WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword))); ;
+                                            .WithBody(b).WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))); ;
         }
 
         private static ExpressionStatementSyntax WriteLiteralString(string token)
