@@ -36,7 +36,7 @@ namespace SerializerGenerator
             UsingDirective(QualifiedName(QualifiedName(IdentifierName("System"), IdentifierName("Text")), IdentifierName("Formatting"))),
             UsingDirective(QualifiedName(IdentifierName("System"), IdentifierName("Text"))));
 
-            var c = ClassDeclaration("GeneratedSerializer");
+            var c = ClassDeclaration("GeneratedSerializer").WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword)));
 
             var b = Block();
             b = b.AddStatements(EncodingLocal("Utf8"));
@@ -44,7 +44,18 @@ namespace SerializerGenerator
             b = MergeLiterals(b);
             var sc = new StringCollector();
             b = ConvertToSlices(b, sc);
+
             c = c.AddMembers(SpanField("span", sc.GetRawString()));
+
+            foreach (var s in sc.strings)
+            {
+                var i = sc.GetOffset(s);
+                c = c.AddMembers(SpanField("slice" + i.Item1, SpanSlice(i.Item1, i.Item2)));
+            }
+
+
+
+
 
             c = c.AddMembers(SerializerMethod(b, t));
             cu = cu.AddMembers(c);
@@ -59,18 +70,27 @@ namespace SerializerGenerator
 
             foreach (var cc in cs)
             {
-                var s = GetLiteralString(cc);
-                if (s != null)
+                if (cc is IfStatementSyntax f && f.Statement is BlockSyntax block)
                 {
-                    var slice = sc.GetOffset(s);
-                    res = res.AddStatements(WriteSpanSlice(slice.Item1, slice.Item2));
+                    if (f.Else != null)
+                        res = res.AddStatements(IfStatement(f.Condition, ConvertToSlices(block,sc), ElseClause(ConvertToSlices((BlockSyntax)f.Else.Statement, sc))));
+                    else
+                        res = res.AddStatements(IfStatement(f.Condition, ConvertToSlices(block, sc)));
                 }
                 else
                 {
-                    res = res.AddStatements((StatementSyntax)cc);
+                    var s = GetLiteralString(cc);
+                    if (s != null)
+                    {
+                        var slice = sc.GetOffset(s);
+                        res = res.AddStatements(WriteSpanSlice(slice.Item1, slice.Item2));
+                    }
+                    else
+                    {
+                        res = res.AddStatements((StatementSyntax)cc);
+                    }
                 }
             }
-
             return res;
         }
 
@@ -83,15 +103,25 @@ namespace SerializerGenerator
 
             foreach (var cc in cs)
             {
-                var s = GetLiteralString(cc);
-                if (s != null)
-                    laststr += s;
+                if (cc is IfStatementSyntax f && f.Statement is BlockSyntax block)
+                {
+                    if (f.Else != null)
+                        res = res.AddStatements(IfStatement(f.Condition, MergeLiterals(block), ElseClause(MergeLiterals((BlockSyntax)f.Else.Statement))));
+                    else
+                        res = res.AddStatements(IfStatement(f.Condition, MergeLiterals(block)));
+                }
                 else
                 {
-                    if (laststr != "")
-                        res = res.AddStatements(WriteLiteralString(laststr));
-                    res = res.AddStatements((StatementSyntax)cc);
-                    laststr = "";
+                    var s = GetLiteralString(cc);
+                    if (s != null)
+                        laststr += s;
+                    else
+                    {
+                        if (laststr != "")
+                            res = res.AddStatements(WriteLiteralString(laststr));
+                        res = res.AddStatements((StatementSyntax)cc);
+                        laststr = "";
+                    }
                 }
             }
 
@@ -151,7 +181,7 @@ namespace SerializerGenerator
 
         private static IfStatementSyntax WriteBoolExpression(ExpressionSyntax member)
         {
-            return IfStatement(member, WriteLiteralString("true")).WithElse(ElseClause(WriteLiteralString("false")));
+            return IfStatement(member, Block(WriteLiteralString("true"))).WithElse(ElseClause(Block(WriteLiteralString("false"))));
         }
 
         private static ExpressionStatementSyntax WriteToStringExpression(ExpressionSyntax member)
@@ -167,9 +197,8 @@ namespace SerializerGenerator
                                             new SyntaxNodeOrToken[]{
                                     Parameter(Identifier("wb")).WithType(IdentifierName("WritableBuffer")),
                                     Token(SyntaxKind.CommaToken),
-                                    Parameter(Identifier("t")).WithType( ParseTypeName(t.FullName) )
-                                            })))
-                                                .WithBody(b);
+                                    Parameter(Identifier("t")).WithType( ParseTypeName(t.FullName))})))
+                                            .WithBody(b).WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword))); ;
         }
 
         private static ExpressionStatementSyntax WriteLiteralString(string token)
@@ -206,15 +235,19 @@ namespace SerializerGenerator
                     ArgumentList(
                         SingletonSeparatedList(
                             Argument(
-                                InvocationExpression(
-                                    MemberAccessExpression(
-                                        SyntaxKind.SimpleMemberAccessExpression,
-                                        IdentifierName("span"),
-                                        IdentifierName("Slice")))
-                                .WithArgumentList(
-                                    ArgumentList(
-                                        SeparatedList<ArgumentSyntax>(
-                                            new SyntaxNodeOrToken[]{
+                                IdentifierName("slice" + start))))));
+        }
+
+        private static InvocationExpressionSyntax SpanSlice(int start, int length)
+        {
+            return InvocationExpression(MemberAccessExpression(
+                                                    SyntaxKind.SimpleMemberAccessExpression,
+                                                    IdentifierName("span"),
+                                                    IdentifierName("Slice")))
+                                            .WithArgumentList(
+                                                ArgumentList(
+                                                    SeparatedList<ArgumentSyntax>(
+                                                        new SyntaxNodeOrToken[]{
                                     Argument(
                                         LiteralExpression(
                                             SyntaxKind.NumericLiteralExpression,
@@ -223,16 +256,23 @@ namespace SerializerGenerator
                                     Argument(
                                         LiteralExpression(
                                             SyntaxKind.NumericLiteralExpression,
-                                            Literal(length)))}))))))));
+                                            Literal(length)))})));
         }
 
         public static FieldDeclarationSyntax SpanField(string id, string text)
+        {
+            return SpanField(id, NewSpan(text));
+        }
+
+        public static FieldDeclarationSyntax SpanField(string id, ExpressionSyntax expression)
         {
             return FieldDeclaration(
                 VariableDeclaration(
                     GenericName(Identifier("Span"))
                     .WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList<TypeSyntax>(PredefinedType(Token(SyntaxKind.ByteKeyword))))))
-                    .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(id)).WithInitializer(EqualsValueClause(NewSpan(text))))));
+                    .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(id)).WithInitializer(EqualsValueClause(expression)))))
+                    .WithModifiers(TokenList(Token(SyntaxKind.StaticKeyword)));
+            ;
         }
 
         public static LocalDeclarationStatementSyntax EncodingLocal(string enc)
@@ -288,8 +328,8 @@ namespace SerializerGenerator
     public class StringCollector
     {
         Dictionary<string, int> lengths = new Dictionary<string, int>();
-        Dictionary<string, int> indecies = new Dictionary<string, int>();
-        List<string> strings = new List<string>();
+        public Dictionary<string, int> indecies = new Dictionary<string, int>();
+        public List<string> strings = new List<string>();
 
         public Tuple<int, int> GetOffset(string value)
         {

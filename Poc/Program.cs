@@ -20,7 +20,7 @@ namespace Poc
             var json = JsonConvert.SerializeObject(new Person { });
             var bytes = Encoding.UTF8.GetBytes(json);
 
-            Serializer.Deserialize(_pipelineFactory.CreateReader(new MemoryStream(bytes))).Wait();
+            //Serializer.Deserialize(_pipelineFactory.CreateReader(new MemoryStream(bytes))).Wait();
         }
     }
 
