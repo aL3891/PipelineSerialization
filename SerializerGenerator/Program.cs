@@ -7,8 +7,6 @@ using System.IO;
 using Library;
 using System.Linq;
 using System.Reflection;
-using System.Collections.Generic;
-using System.Text;
 using System.IO.Pipelines.Samples.Models;
 
 namespace SerializerGenerator
@@ -41,16 +39,16 @@ namespace SerializerGenerator
             var b = Block();
             b = b.AddStatements(EncodingLocal("Utf8"));
             b = WriteSerializer(t, b, IdentifierName("t"));
-            b = MergeLiterals(b);
+            b = MergeLiterals(b, GetLiteralString, AppendString(""));
             var sc = new StringCollector();
             b = ConvertToSlices(b, sc);
 
-            c = c.AddMembers(SpanField("span", sc.GetRawString()));
+            c = c.AddMembers(SpanHelpers.SpanField("span", sc.GetRawString()));
 
             foreach (var s in sc.strings)
             {
                 var i = sc.GetOffset(s);
-                c = c.AddMembers(SpanField("slice" + i.Item1, SpanSlice(i.Item1, i.Item2)));
+                c = c.AddMembers(SpanHelpers.SpanField("slice" + i.Item1, SpanHelpers.SpanSlice("span", i.Item1, i.Item2)));
             }
 
             c = c.AddMembers(SerializerMethod(b, t));
@@ -75,7 +73,7 @@ namespace SerializerGenerator
                 }
                 else
                 {
-                    var s = GetLiteralString(cc);
+                    var s = GetLiteralString(cc, AppendString(""));
                     if (s != null)
                     {
                         var slice = sc.GetOffset(s);
@@ -90,86 +88,84 @@ namespace SerializerGenerator
             return res;
         }
 
-        private static BlockSyntax MergeLiterals(BlockSyntax b)
+        private static BlockSyntax MergeLiterals(BlockSyntax block, Func<SyntaxNode, SyntaxNode, string> getLiteralString, SyntaxNode template)
         {
-            var cs = b.ChildNodes().ToList();
             var res = Block();
-
             string laststr = "";
 
-            foreach (var cc in cs)
+            foreach (var node in block.ChildNodes())
             {
-                if (cc is IfStatementSyntax f && f.Statement is BlockSyntax block)
+                if (node is IfStatementSyntax ifStatement && ifStatement.Statement is BlockSyntax ifBlock)
                 {
-                    if (f.Else != null)
-                        res = res.AddStatements(IfStatement(f.Condition, MergeLiterals(block), ElseClause(MergeLiterals((BlockSyntax)f.Else.Statement))));
+                    if (ifStatement.Else?.Statement is BlockSyntax elseBlock)
+                        res = res.AddStatements(IfStatement(ifStatement.Condition, MergeLiterals(ifBlock, getLiteralString, template), ElseClause(MergeLiterals(elseBlock, getLiteralString, template))));
                     else
-                        res = res.AddStatements(IfStatement(f.Condition, MergeLiterals(block)));
+                        res = res.AddStatements(IfStatement(ifStatement.Condition, MergeLiterals(ifBlock, getLiteralString, template)));
                 }
                 else
                 {
-                    var s = GetLiteralString(cc);
+                    var s = getLiteralString(node, template);
                     if (s != null)
                         laststr += s;
                     else
                     {
                         if (laststr != "")
-                            res = res.AddStatements(WriteLiteralString(laststr));
-                        res = res.AddStatements((StatementSyntax)cc);
+                            res = res.AddStatements(AppendString(laststr));
+                        res = res.AddStatements((StatementSyntax)node);
                         laststr = "";
                     }
                 }
             }
 
             if (laststr != "")
-                res = res.AddStatements(WriteLiteralString(laststr));
+                res = res.AddStatements(AppendString(laststr));
 
             return res;
         }
 
-        private static string GetLiteralString(SyntaxNode syntaxNode)
+        private static string GetLiteralString(SyntaxNode target, SyntaxNode template)
         {
-            var r = syntaxNode.ReplaceNodes(syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>(), (o, n) => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")));
-            if (r.IsEquivalentTo(WriteLiteralString("")))
-                return syntaxNode.DescendantNodes().OfType<LiteralExpressionSyntax>().First().Token.ValueText;
+            var r = target.ReplaceNodes(target.DescendantNodes().OfType<LiteralExpressionSyntax>(), (o, n) => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")));
+            if (r.IsEquivalentTo(template))
+                return target.DescendantNodes().OfType<LiteralExpressionSyntax>().First().Token.ValueText;
             else
                 return null;
         }
 
         private static BlockSyntax WriteSerializer(Type t, BlockSyntax b, ExpressionSyntax member)
         {
-            b = b.AddStatements(WriteLiteralString("{"));
+            b = b.AddStatements(AppendString("{"));
 
             var last = t.GetTypeInfo().GetProperties().Last();
 
             foreach (var prop in t.GetTypeInfo().GetProperties())
             {
-                b = b.AddStatements(WriteLiteralString($"\"{prop.Name}\" : "));
+                b = b.AddStatements(AppendString($"\"{prop.Name}\" : "));
 
                 if (prop.PropertyType == typeof(string))
                 {
                     var sb = Block();
-                    sb = sb.AddStatements(WriteLiteralString("'"));
-                    sb = sb.AddStatements(WriteAppendExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
-                    sb = sb.AddStatements(WriteLiteralString("'"));
+                    sb = sb.AddStatements(AppendString("'"));
+                    sb = sb.AddStatements(AppendString(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
+                    sb = sb.AddStatements(AppendString("'"));
 
                     b = b.AddStatements(IfStatement(BinaryExpression(
         SyntaxKind.NotEqualsExpression,
         MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name)),
-        LiteralExpression(SyntaxKind.NullLiteralExpression)),    sb));
+        LiteralExpression(SyntaxKind.NullLiteralExpression)), sb));
                 }
                 else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(Guid))
                 {
-                    b = b.AddStatements(WriteLiteralString("'"));
-                    b = b.AddStatements(WriteToStringExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
-                    b = b.AddStatements(WriteLiteralString("'"));
+                    b = b.AddStatements(AppendString("'"));
+                    b = b.AddStatements(AppendToString(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
+                    b = b.AddStatements(AppendString("'"));
                 }
                 else if (prop.PropertyType == typeof(bool))
                 {
-                    b = b.AddStatements(WriteBoolExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
+                    b = b.AddStatements(AppendBool(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
                 }
                 else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(bool) || prop.PropertyType == typeof(float) || prop.PropertyType == typeof(double))
-                    b = b.AddStatements(WriteAppendExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
+                    b = b.AddStatements(AppendString(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName(prop.Name))));
                 else
                 {
                     if (!prop.PropertyType.GetTypeInfo().IsValueType)
@@ -186,21 +182,21 @@ namespace SerializerGenerator
 
 
                 if (prop != last)
-                    b = b.AddStatements(WriteLiteralString(","));
+                    b = b.AddStatements(AppendString(","));
             }
 
-            b = b.AddStatements(WriteLiteralString("}"));
+            b = b.AddStatements(AppendString("}"));
             return b;
         }
 
-        private static IfStatementSyntax WriteBoolExpression(ExpressionSyntax member)
+        private static IfStatementSyntax AppendBool(ExpressionSyntax member)
         {
-            return IfStatement(member, Block(WriteLiteralString("true"))).WithElse(ElseClause(Block(WriteLiteralString("false"))));
+            return IfStatement(member, Block(AppendString("true"))).WithElse(ElseClause(Block(AppendString("false"))));
         }
 
-        private static ExpressionStatementSyntax WriteToStringExpression(ExpressionSyntax member)
+        private static ExpressionStatementSyntax AppendToString(ExpressionSyntax member)
         {
-            return WriteAppendExpression(InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName("ToString"))));
+            return AppendString(InvocationExpression(MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, member, IdentifierName("ToString"))));
         }
 
         private static MethodDeclarationSyntax SerializerMethod(BlockSyntax b, Type t)
@@ -215,12 +211,12 @@ namespace SerializerGenerator
                                             .WithBody(b).WithModifiers(TokenList(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))); ;
         }
 
-        private static ExpressionStatementSyntax WriteLiteralString(string token)
+        private static ExpressionStatementSyntax AppendString(string token)
         {
-            return WriteAppendExpression(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(token)));
+            return AppendString(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(token)));
         }
 
-        private static ExpressionStatementSyntax WriteAppendExpression(ExpressionSyntax expression)
+        private static ExpressionStatementSyntax AppendString(ExpressionSyntax expression)
         {
             return ExpressionStatement(
     InvocationExpression(
@@ -252,43 +248,6 @@ namespace SerializerGenerator
                                 IdentifierName("slice" + start))))));
         }
 
-        private static InvocationExpressionSyntax SpanSlice(int start, int length)
-        {
-            return InvocationExpression(MemberAccessExpression(
-                                                    SyntaxKind.SimpleMemberAccessExpression,
-                                                    IdentifierName("span"),
-                                                    IdentifierName("Slice")))
-                                            .WithArgumentList(
-                                                ArgumentList(
-                                                    SeparatedList<ArgumentSyntax>(
-                                                        new SyntaxNodeOrToken[]{
-                                    Argument(
-                                        LiteralExpression(
-                                            SyntaxKind.NumericLiteralExpression,
-                                            Literal(start))),
-                                    Token(SyntaxKind.CommaToken),
-                                    Argument(
-                                        LiteralExpression(
-                                            SyntaxKind.NumericLiteralExpression,
-                                            Literal(length)))})));
-        }
-
-        public static FieldDeclarationSyntax SpanField(string id, string text)
-        {
-            return SpanField(id, NewSpan(text));
-        }
-
-        public static FieldDeclarationSyntax SpanField(string id, ExpressionSyntax expression)
-        {
-            return FieldDeclaration(
-                VariableDeclaration(
-                    GenericName(Identifier("Span"))
-                    .WithTypeArgumentList(TypeArgumentList(SingletonSeparatedList<TypeSyntax>(PredefinedType(Token(SyntaxKind.ByteKeyword))))))
-                    .WithVariables(SingletonSeparatedList(VariableDeclarator(Identifier(id)).WithInitializer(EqualsValueClause(expression)))))
-                    .WithModifiers(TokenList(Token(SyntaxKind.StaticKeyword)));
-            ;
-        }
-
         public static LocalDeclarationStatementSyntax EncodingLocal(string enc)
         {
             return LocalDeclarationStatement(
@@ -304,74 +263,6 @@ namespace SerializerGenerator
                         SyntaxKind.SimpleMemberAccessExpression,
                         IdentifierName("TextEncoder"),
                         IdentifierName(enc)))))));
-        }
-
-        private static ObjectCreationExpressionSyntax NewSpan(string text)
-        {
-            return NewSpan(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(text)));
-        }
-
-        private static ObjectCreationExpressionSyntax NewSpan(ExpressionSyntax expression)
-        {
-            return ObjectCreationExpression(GenericName(Identifier("Span"))
-                                                 .WithTypeArgumentList(
-                                                     TypeArgumentList(
-                                                         SingletonSeparatedList<TypeSyntax>(
-                                                             PredefinedType(
-                                                                 Token(SyntaxKind.ByteKeyword))))))
-                                             .WithArgumentList(
-                                                 ArgumentList(
-                                                     SingletonSeparatedList(
-                                                         Argument(
-                                                             InvocationExpression(
-                                                                 MemberAccessExpression(
-                                                                     SyntaxKind.SimpleMemberAccessExpression,
-                                                                     MemberAccessExpression(
-                                                                         SyntaxKind.SimpleMemberAccessExpression,
-                                                                         IdentifierName("Encoding"),
-                                                                         IdentifierName("UTF8")),
-                                                                     IdentifierName("GetBytes")))
-                                                             .WithArgumentList(
-                                                                 ArgumentList(
-                                                                     SingletonSeparatedList(
-                                                                         Argument(
-                                                                             expression))))))));
-        }
-    }
-
-    public class StringCollector
-    {
-        Dictionary<string, int> lengths = new Dictionary<string, int>();
-        public Dictionary<string, int> indecies = new Dictionary<string, int>();
-        public List<string> strings = new List<string>();
-
-        public Tuple<int, int> GetOffset(string value)
-        {
-            if (!lengths.ContainsKey(value))
-            {
-                strings.Add(value);
-                var b = Encoding.UTF8.GetBytes(value);
-                indecies[value] = lengths.Values.Sum();
-                lengths[value] = b.Length;
-
-            }
-
-            return Tuple.Create(indecies[value], lengths[value]);
-        }
-
-        public string GetRawString()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            foreach (var str in strings)
-                sb.Append(str);
-
-            return sb.ToString();
-        }
-
-        public string GetBase64String()
-        {
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(GetRawString()));
         }
     }
 }
