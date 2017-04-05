@@ -2,25 +2,41 @@ using System;
 using System.IO.Pipelines;
 using System.Text.Formatting;
 using System.Text;
+using System.Buffers;
 
 public static partial class Serializer
 {
-    static Span<byte> span = new Span<byte>(Encoding.UTF8.GetBytes("{\"Age\" : ',\"Name\" : }"));
-    static Span<byte> slice0 = span.Slice(0, 9);
-    static Span<byte> slice9 = span.Slice(9, 1);
-    static Span<byte> slice10 = span.Slice(10, 11);
-    public static void Serialize(WritableBuffer wb, Library.Person t)
+    static Span<byte> span = new Span<byte>(Encoding.UTF8.GetBytes(""));
+    private const byte ByteLF = (byte)'{';
+
+
+    public static bool Deserialize(ReadableBuffer buffer, Library.Person t, out ReadCursor consumed, out ReadCursor examined)
     {
-        var enc = TextEncoder.Utf8;
-        wb.Write(slice0);
-        wb.Append(t.Age, enc);
-        if (t.Name != null)
+        consumed = buffer.Start;
+        examined = buffer.End;
+
+        var span = buffer.First.Span;
+
+        var lineIndex = span.IndexOfVectorized(ByteLF);
+        if (lineIndex >= 0)
         {
-            wb.Write(slice9);
-            wb.Append(t.Name, enc);
-            wb.Write(slice9);
+            consumed = buffer.Move(consumed, lineIndex + 1);
+            span = span.Slice(0, lineIndex + 1);
+        }
+        else 
+        {
+            // No request line end
+            return false;
         }
 
-        wb.Write(slice10);
+        Span<byte> value;
+        if (value.Equals(new Span<byte>(Encoding.UTF8.GetBytes("Age"))))
+        {
+        }
+        if (value.Equals(new Span<byte>(Encoding.UTF8.GetBytes("Name"))))
+        {
+        }
+
+        return true; 
     }
 }

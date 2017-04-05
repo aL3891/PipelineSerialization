@@ -48,12 +48,12 @@ namespace SerializerGenerator
             ;
         }
 
-        private static ObjectCreationExpressionSyntax NewSpan(string text)
+        public static ObjectCreationExpressionSyntax NewSpan(string text)
         {
             return NewSpan(LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(text)));
         }
 
-        private static ObjectCreationExpressionSyntax NewSpan(ExpressionSyntax expression)
+        public static ObjectCreationExpressionSyntax NewSpan(ExpressionSyntax expression)
         {
             return ObjectCreationExpression(GenericName(Identifier("Span"))
                                                  .WithTypeArgumentList(
