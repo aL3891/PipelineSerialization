@@ -24,26 +24,21 @@ namespace Benchmark
 
     [Config(typeof(CoreConfig))]
     public class BigClassSerializer
-    {
-        
-        private IPipe _pipe;
-        private PipeFactory _pipelineFactory;
+    {       
+       private Pipe _pipe;
         private MemoryStream mem;
         private JsonSerializer json;
         private JsonTextWriter writer;
-        private WritableBuffer writableBuffer;
         private Model model;
 
-        [Setup]
+        [IterationSetup]
         public void Setup()
         {
-            _pipelineFactory = new PipeFactory();
-            _pipe = _pipelineFactory.Create();
+			_pipe = new Pipe();
             mem = new MemoryStream();
             json = new JsonSerializer();
             writer = new JsonTextWriter(new StreamWriter(mem));
             model = BigModels.About100Fields;
-            writableBuffer = _pipe.Writer.Alloc();
         }
 
         //[Benchmark(Baseline = true)]
@@ -56,7 +51,7 @@ namespace Benchmark
         [Benchmark]
         public void Generated()
         {
-            ModelSerializer.Serialize(writableBuffer, model);
+            //ModelSerializer.Serialize(writableBuffer, model);
         }
     }
 
@@ -64,42 +59,32 @@ namespace Benchmark
     public class SmallClassSerializer
     {
         Person person;
-        private IPipe _pipe;
-        private PipeFactory _pipelineFactory;
+        private Pipe _pipe;
         private MemoryStream mem;
         private JsonSerializer json;
         private JsonTextWriter writer;
-        private WritableBuffer writableBuffer;
 
-        [Setup]
+        [IterationSetup]
         public void Setup()
         {
-            _pipelineFactory = new PipeFactory();
-            _pipe = _pipelineFactory.Create();
+            _pipe = new Pipe();
             mem = new MemoryStream();
             json = new JsonSerializer();
             writer = new JsonTextWriter(new StreamWriter(mem));
             person = new Person { Age = 23, Name = "rune" };
-            writableBuffer = _pipe.Writer.Alloc();
         }
 
-        //[Benchmark(Baseline = true)]
-        //public void Jsondotnet()
-        //{
-        //    mem.Position = 0;
-        //    json.Serialize(writer, person);
-        //}
+		[Benchmark(Baseline = true)]
+		public void Jsondotnet()
+		{
+			mem.Position = 0;
+			json.Serialize(writer, person);
+		}
 
-        [Benchmark]
+		[Benchmark]
         public void Generated()
         {
-            PersonSerializer.Serialize(writableBuffer, person);
-        }
-
-        [Benchmark]
-        public void Generated2()
-        {
-            PersonSerializer2.Serialize(writableBuffer, person);
+            //PersonSerializer.Serialize(writableBuffer, person);
         }
     }
 

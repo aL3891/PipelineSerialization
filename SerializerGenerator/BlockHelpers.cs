@@ -9,7 +9,6 @@ namespace SerializerGenerator
 {
     public class BlockHelpers
     {
-
         public static string GetLiteralString(SyntaxNode target, SyntaxNode template)
         {
             var r = target.ReplaceNodes(target.DescendantNodes().OfType<LiteralExpressionSyntax>(), (o, n) => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal("")));
@@ -84,6 +83,5 @@ namespace SerializerGenerator
 
             return res;
         }
-
     }
 }
